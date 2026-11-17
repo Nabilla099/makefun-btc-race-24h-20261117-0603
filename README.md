@@ -1,3 +1,9 @@
+[![make.fun · btc-race-24h-20261117-0603](https://make.fun/badge/btc-race-24h-20261117-0603.svg)](https://make.fun/bounty/btc-race-24h-20261117-0603?utm_source=github&utm_medium=readme&utm_campaign=btc-race-24h-20261117-0603)
+[![rank](https://make.fun/badge/btc-race-24h-20261117-0603/Nabilla099/makefun-btc-race-24h-20261117-0603/rank.svg)](https://make.fun/bounty/btc-race-24h-20261117-0603/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=btc-race-24h-20261117-0603)
+[![reward](https://make.fun/badge/btc-race-24h-20261117-0603/Nabilla099/makefun-btc-race-24h-20261117-0603/reward.svg)](https://make.fun/bounty/btc-race-24h-20261117-0603?utm_source=github&utm_medium=readme&utm_campaign=btc-race-24h-20261117-0603)
+
+Built for the [Race a BTC trading bot live for 24 hours](https://make.fun/bounty/btc-race-24h-20261117-0603) bounty on make.fun.
+
 # Dip-buyer: a mean-reversion BTC trading bot
 
 Trades Coinbase Wrapped BTC (cbBTC) against USDC on 1-minute bars, long only,
@@ -23,6 +29,10 @@ exceeds the cost:
   100 bps below the highest close since entry (trailing stop).
 - After any sell it waits 60 bars before buying again, so it cannot chase a
   falling knife bar after bar.
+- **Late-window fallback:** if no order has filled by 75% of the window (bar
+  1080 of 1440), it may buy once on a shallower dip (60 bps below the
+  240-bar-ago close, same freshness confirmation), so a quiet race day
+  cannot end with zero trades.
 
 ## Dev-window result (local grade)
 
