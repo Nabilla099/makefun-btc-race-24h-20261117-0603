@@ -17,6 +17,12 @@
 //     keeps falling). It sells the whole position either way.
 //   - After any sell it waits 60 bars before it may buy again, so a falling
 //     knife cannot make it re-enter bar after bar.
+//   - Late fallback: if nothing has filled by 75% of the window (seq 1080 of
+//     1440), a shallower dip — 60 bps under 240 bars ago, same freshness
+//     confirmation — may trigger one buy with the same exits. On a quiet day
+//     with no 100-bps dip this keeps the bot from ending on 0 trades, which
+//     would fail the race guardrails outright; on a normal day it never fires
+//     because a trade has already filled by then.
 //
 // The thresholds sit in the middle of a broad plateau found by sweeping the dev
 // window (dip 90-110 bps, trailing stop 80-120 bps, recovery 15-50 bps all clear
@@ -43,6 +49,10 @@ const RECOVER_BPS = 30;
 const TRAIL_BPS = 100;
 /** Bars to wait after a sell before buying again. */
 const COOLDOWN_BARS = 60;
+/** Seq from which the late fallback may fire: 75% of the 1,440-bar window. */
+const FALLBACK_SEQ = 1080;
+/** A 4-hour drop of this size counts as a dip for the fallback buy. */
+const FALLBACK_DIP_BPS = 60;
 /** A fill more than this past the latest close is refused, not chased. */
 const MAX_SLIPPAGE_BPS = 300;
 
@@ -50,6 +60,8 @@ const MAX_SLIPPAGE_BPS = 300;
 const closes: (number | null)[] = [];
 /** Highest close since the current entry (0 while flat). */
 let peakClose = 0;
+/** Filled orders seen so far, any side; the fallback only fires while this is 0. */
+let filledTrades = 0;
 /** Seq of the last sell decision; buying is paused for COOLDOWN_BARS after it. */
 let lastSellSeq = -1e9;
 
@@ -71,6 +83,7 @@ await runBars({
     const held = state.positions.get(SYMBOL);
     const close = bar === undefined ? null : Number(bar.c);
     const seq = state.seq;
+    for (const f of batch.fills) if (f.status === 'filled') filledTrades++;
 
     if (held !== undefined) {
       if (close === null) return [];
@@ -94,7 +107,8 @@ await runBars({
     if (thenLong === null || thenFresh === null) return [];
     const rLong = retBps(close, thenLong);
     const rFresh = retBps(close, thenFresh);
-    if (rLong <= -DIP_BPS && rFresh <= -FRESH_BPS) {
+    const dipBps = seq >= FALLBACK_SEQ && filledTrades === 0 ? FALLBACK_DIP_BPS : DIP_BPS;
+    if (rLong <= -dipBps && rFresh <= -FRESH_BPS) {
       const cash = state.cash;
       if (cash < BigInt(state.hello.fees.min_notional_quote_units)) return [];
       peakClose = close;
